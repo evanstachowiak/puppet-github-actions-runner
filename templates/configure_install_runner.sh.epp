@@ -23,14 +23,14 @@ export RUNNER_ALLOW_RUNASROOT=true
 <%= $root_dir %>/<%= $instance_name %>/config.sh remove \
   --url <%= $url %>                                     \
   --token ${TOKEN}                                      \
-  --name "$(hostname)-$(date --iso8601)"
+  --name "$(hostname)-$(date --iso-8601)"
 
 
 # Configure the runner.
 <%= $root_dir %>/<%= $instance_name %>/config.sh \
   --unattended                                   \
   --replace                                      \
-  --name "$(hostname)-$(date --iso8601)"  \
+  --name "$(hostname)-$(date --iso-8601)"  \
   --url <%= $url %>                              \
   --token ${TOKEN}                               \
   <%- if $disable_update { -%>
