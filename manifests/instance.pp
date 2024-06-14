@@ -76,8 +76,8 @@ define github_actions_runner::instance (
 ) {
 
   if $labels {
-    $flattend_labels_list=join($labels, ',')
-    $assured_labels="--labels ${flattend_labels_list}"
+    $flattend_labels_list = join($labels, ',')
+    $assured_labels = "--labels ${flattend_labels_list}"
   } else {
     $assured_labels = ''
   }
@@ -97,7 +97,7 @@ define github_actions_runner::instance (
     fail("Either 'org_name' or 'enterprise_name' is required to create runner instances")
   }
 
-  $archive_name =  "${github_actions_runner::package_name}-${github_actions_runner::package_ensure}.tar.gz"
+  $archive_name = "${github_actions_runner::package_name}-${github_actions_runner::package_ensure}.tar.gz"
   $source = "${github_actions_runner::repository_url}/v${github_actions_runner::package_ensure}/${archive_name}"
 
   $ensure_instance_directory = $ensure ? {
@@ -147,14 +147,14 @@ define github_actions_runner::instance (
   }
 
   if $ensure == 'present' {
-      exec { "${instance_name}-check-runner-configured":
-        user    => $user,
-        cwd     => '/srv',
-        command => 'true',
-        unless  => "test -f ${github_actions_runner::root_dir}/${instance_name}/runsvc.sh",
-        path    => ['/bin', '/usr/bin'],
-        notify  => Exec["${instance_name}-run_configure_install_runner.sh"],
-      }
+    exec { "${instance_name}-check-runner-configured":
+      user    => $user,
+      cwd     => '/srv',
+      command => 'true',
+      unless  => "test -f ${github_actions_runner::root_dir}/${instance_name}/runsvc.sh",
+      path    => ['/bin', '/usr/bin'],
+      notify  => Exec["${instance_name}-run_configure_install_runner.sh"],
+    }
   }
 
   exec { "${instance_name}-ownership":
@@ -167,53 +167,6 @@ define github_actions_runner::instance (
     onlyif      => "test -d ${github_actions_runner::root_dir}/${instance_name}"
   }
 
-  exec { "${instance_name}-run_configure_install_runner.sh":
-    user        => $user,
-    cwd         => "${github_actions_runner::root_dir}/${instance_name}",
-    command     => "${github_actions_runner::root_dir}/${instance_name}/configure_install_runner.sh",
-    refreshonly => true,
-    path        => ['/bin', '/usr/bin'],
-    onlyif      => "test -d ${github_actions_runner::root_dir}/${instance_name}"
-  }
-
-  $content_path = $path ? {
-      undef   => undef,
-      default => epp('github_actions_runner/path.epp', {
-        paths => $path,
-      })
-  }
-
-  file { "${github_actions_runner::root_dir}/${name}/.path":
-    ensure  => $ensure,
-    mode    => '0644',
-    owner   => $user,
-    group   => $group,
-    content => $content_path,
-    require => [Archive["${instance_name}-${archive_name}"],
-                Exec["${instance_name}-run_configure_install_runner.sh"],
-    ],
-    notify  => Systemd::Unit_file["github-actions-runner.${instance_name}.service"]
-  }
-
-  $content_env = $env ? {
-      undef   => undef,
-      default => epp('github_actions_runner/env.epp', {
-        envs => $env,
-      })
-  }
-
-  file { "${github_actions_runner::root_dir}/${name}/.env":
-    ensure  => $ensure,
-    mode    => '0644',
-    owner   => $user,
-    group   => $group,
-    content => $content_env,
-    require => [Archive["${instance_name}-${archive_name}"],
-                Exec["${instance_name}-run_configure_install_runner.sh"],
-    ],
-    notify  => Systemd::Unit_file["github-actions-runner.${instance_name}.service"]
-  }
-
   if defined('$active_service') {
     $real_active_service = $active_service
   } else {
@@ -223,14 +176,61 @@ define github_actions_runner::instance (
     }
   }
 
-  $enable_service = $ensure ? {
-    'present' => true,
-    'absent'  => false,
+  $real_run_configure_install_runner_sh_command = $real_active_service ? {
+    true  => "${github_actions_runner::root_dir}/${instance_name}/configure_install_runner.sh",
+    false => "echo 'Not running ${github_actions_runner::root_dir}/${instance_name}/configure_install_runner.sh'",
+  }
+
+  exec { "${instance_name}-run_configure_install_runner.sh":
+    user        => $user,
+    cwd         => "${github_actions_runner::root_dir}/${instance_name}",
+    command     => $real_run_configure_install_runner_sh_command,
+    refreshonly => true,
+    path        => ['/bin', '/usr/bin'],
+    onlyif      => "test -d ${github_actions_runner::root_dir}/${instance_name}"
+  }
+
+  $content_path = $path ? {
+    undef   => undef,
+    default => epp('github_actions_runner/path.epp', {
+      paths => $path,
+    })
+  }
+
+  file { "${github_actions_runner::root_dir}/${name}/.path":
+    ensure  => $ensure,
+    mode    => '0644',
+    owner   => $user,
+    group   => $group,
+    content => $content_path,
+    require => [Archive["${instance_name}-${archive_name}"],
+      Exec["${instance_name}-run_configure_install_runner.sh"],
+    ],
+    notify  => Systemd::Unit_file["github-actions-runner.${instance_name}.service"]
+  }
+
+  $content_env = $env ? {
+    undef   => undef,
+    default => epp('github_actions_runner/env.epp', {
+      envs => $env,
+    })
+  }
+
+  file { "${github_actions_runner::root_dir}/${name}/.env":
+    ensure  => $ensure,
+    mode    => '0644',
+    owner   => $user,
+    group   => $group,
+    content => $content_env,
+    require => [Archive["${instance_name}-${archive_name}"],
+      Exec["${instance_name}-run_configure_install_runner.sh"],
+    ],
+    notify  => Systemd::Unit_file["github-actions-runner.${instance_name}.service"]
   }
 
   systemd::unit_file { "github-actions-runner.${instance_name}.service":
     ensure  => $ensure,
-    enable  => $enable_service,
+    enable  => $real_active_service,
     active  => $real_active_service,
     content => epp('github_actions_runner/github-actions-runner.service.epp', {
       instance_name => $instance_name,
@@ -242,8 +242,8 @@ define github_actions_runner::instance (
       no_proxy      => $no_proxy,
     }),
     require => [File["${github_actions_runner::root_dir}/${instance_name}/configure_install_runner.sh"],
-                File["${github_actions_runner::root_dir}/${instance_name}/.path"],
-                Exec["${instance_name}-run_configure_install_runner.sh"]],
+      File["${github_actions_runner::root_dir}/${instance_name}/.path"],
+      Exec["${instance_name}-run_configure_install_runner.sh"]],
   }
 
 }
