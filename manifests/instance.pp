@@ -55,10 +55,11 @@
 #
 define github_actions_runner::instance (
   Enum['present', 'absent']      $ensure                = 'present',
+  Optional[Boolean]              $active_service        = $github_actions_runner::active_service,
   String[1]                      $personal_access_token = $github_actions_runner::personal_access_token,
   String[1]                      $user                  = $github_actions_runner::user,
   String[1]                      $group                 = $github_actions_runner::group,
-  String[1]                      $hostname              = $::facts['hostname'],
+  String[1]                      $hostname              = $facts['networking']['hostname'],
   String[1]                      $instance_name         = $title,
   String[1]                      $github_domain         = $github_actions_runner::github_domain,
   String[1]                      $github_api            = $github_actions_runner::github_api,
@@ -213,9 +214,13 @@ define github_actions_runner::instance (
     notify  => Systemd::Unit_file["github-actions-runner.${instance_name}.service"]
   }
 
-  $active_service = $ensure ? {
-    'present' => true,
-    'absent'  => false,
+  if defined('$active_service') {
+    $real_active_service = $active_service
+  } else {
+    $real_active_service = $ensure ? {
+      'present' => true,
+      'absent'  => false,
+    }
   }
 
   $enable_service = $ensure ? {
@@ -226,7 +231,7 @@ define github_actions_runner::instance (
   systemd::unit_file { "github-actions-runner.${instance_name}.service":
     ensure  => $ensure,
     enable  => $enable_service,
-    active  => $active_service,
+    active  => $real_active_service,
     content => epp('github_actions_runner/github-actions-runner.service.epp', {
       instance_name => $instance_name,
       root_dir      => $github_actions_runner::root_dir,

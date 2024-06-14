@@ -69,6 +69,7 @@
 #
 class github_actions_runner (
   Enum['present', 'absent']      $ensure,
+  Optional[Boolean]              $active_service,
   Stdlib::Absolutepath           $base_dir_name,
   String[1]                      $personal_access_token,
   String[1]                      $package_name,
