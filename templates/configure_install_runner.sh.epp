@@ -18,19 +18,23 @@ TOKEN=$(curl -s -XPOST -H "authorization: token <%= $personal_access_token %>"  
 # Allow root
 export RUNNER_ALLOW_RUNASROOT=true
 
+# Get AWS token
+AWS_TOKEN=$(curl -f -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 180" || true)
+INSTANCE_ID=$(curl -f -H "X-aws-ec2-metadata-token: $AWS_TOKEN" -v http://169.254.169.254/latest/meta-data/instance-id)
+
 
 # (Optional) Remove previous config.
 <%= $root_dir %>/<%= $instance_name %>/config.sh remove \
   --url <%= $url %>                                     \
   --token ${TOKEN}                                      \
-  --name "$(hostname)-$(date --iso-8601)"
+  --name ${INSTANCE_ID}
 
 
 # Configure the runner.
 <%= $root_dir %>/<%= $instance_name %>/config.sh \
   --unattended                                   \
   --replace                                      \
-  --name "$(hostname)-$(date --iso-8601)"  \
+  --name ${INSTANCE_ID}                          \
   --url <%= $url %>                              \
   --token ${TOKEN}                               \
   <%- if $disable_update { -%>
