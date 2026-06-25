@@ -44,6 +44,9 @@
 # * labels
 # Optional[Array[String]], A list of costum lables to add to a runner.
 #
+# * no_default_labels
+# Optional[Boolean], removes GitHub's default self-hosted, OS, and architecture labels.
+#
 # * path
 # Optional[Array[String]], List of paths to be used as PATH env in the instance runner. If not defined, file ".path" will be kept as created
 #                          by the runner scripts. (Default: Value set by github_actions_runner Class)
@@ -68,6 +71,7 @@ define github_actions_runner::instance (
   Optional[String[1]]            $no_proxy              = $github_actions_runner::no_proxy,
   Optional[Boolean]              $disable_update        = $github_actions_runner::disable_update,
   Optional[Array[String[1]]]     $labels                = undef,
+  Optional[Boolean]              $no_default_labels     = false,
   Optional[String[1]]            $enterprise_name       = $github_actions_runner::enterprise_name,
   Optional[String[1]]            $org_name              = $github_actions_runner::org_name,
   Optional[String[1]]            $repo_name             = undef,
@@ -77,7 +81,7 @@ define github_actions_runner::instance (
 
   if $labels {
     $flattend_labels_list = join($labels, ',')
-    $assured_labels = "--labels ${flattend_labels_list}"
+    $assured_labels = ",${flattend_labels_list}"
   } else {
     $assured_labels = ''
   }
@@ -141,6 +145,7 @@ define github_actions_runner::instance (
       hostname              => $hostname,
       assured_labels        => $assured_labels,
       disable_update        => $disable_update,
+      no_default_labels     => $no_default_labels,
     }),
     notify  => Exec["${instance_name}-run_configure_install_runner.sh"],
     require => Archive["${instance_name}-${archive_name}"],

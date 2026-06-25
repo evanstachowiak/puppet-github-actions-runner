@@ -6,6 +6,7 @@
       String $hostname,
       String $assured_labels,
       Boolean $disable_update,
+      Boolean $no_default_labels,
 | -%>
 #!/bin/bash
 # Configure the action runner after the package file has been downloaded.
@@ -38,11 +39,13 @@ AWS_REGION=$(curl -f -H "X-aws-ec2-metadata-token: $AWS_TOKEN" http://169.254.16
   --name ${INSTANCE_ID}                          \
   --url <%= $url %>                              \
   --token ${TOKEN}                               \
-  --labels ${AWS_REGION},${ACCOUNT_ID}           \
+  --labels ${AWS_REGION},${ACCOUNT_ID}<%= $assured_labels %> \
+  <%- if $no_default_labels { -%>
+  --no-default-labels                            \
+  <%- } -%>
   <%- if $disable_update { -%>
   --disableupdate                                \
   <%- } -%>
-  <%= $assured_labels %>
 
 # Copy service endpoint script.
 if [ ! -f <%= $root_dir %>/<%= $instance_name %>/runsvc.sh ]; then
